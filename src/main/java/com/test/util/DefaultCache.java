@@ -4,6 +4,7 @@ package com.test.util;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.jivesoftware.util.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,10 +57,66 @@ public class DefaultCache<K, V> implements Cache<K, V> {
     public synchronized V put(K key, V value){
     	 // Delete an old entry if it exists.
         V v = remove(key);
-    	return null;
+        int objectSize = 1;
+        //TODO calculate size of the value
+        
+        //
+        if(maxCacheSize > 0 && objectSize > maxCacheSize*.90){
+        	Log.warn("Cache: " + name + " -- object with key " + key +
+                    " is too large to fit in cache. Size is " + objectSize);
+            return value;
+        }
+        cacheSize += objectSize;
+        DefaultCache.CacheObject<V> cacheObject = new DefaultCache.CacheObject<V>(value, objectSize);
+        map.put(key, cacheObject); 
+        // Make an entry into the cache order list.
+        LinkedList.Node<K> lastAccessedNode = lastAccessedList.addFirst(key);
+    	cacheObject.lastAccessedListNode = lastAccessedNode;
+        LinkedList.Node<K> ageNode = ageList.addFirst(key);
+        ageNode.timestamp = System.currentTimeMillis();
+        cacheObject.ageListNode = ageNode;
+        /**
+         * If cache is too full,remove least used cache entries
+         * until it is not too full.
+         */
+        cullCache();
+        return v;
     }
-    
-    public synchronized V remove(Object key) {
+    /**
+     * Remove object from cache if the cache is too full.
+     * "Too full" is defined as within 3% of the maximum cache size.
+     * whenever the cache is too big, the least frequently used
+     * elements are deleted until the cache is at least 10% empty.
+     */
+    private final void cullCache() {
+    	if(maxCacheSize < 0 ){
+    		return;
+    	}
+    	int desiredSize = (int)(maxCacheSize * .97);
+    	if(cacheSize >= desiredSize){
+    		delExpiredNodes();
+    	}
+    	
+	}
+
+	private void delExpiredNodes() {
+		if(maxLifetime<0){
+			return;
+		}
+		LinkedList.Node<K> node = ageList.getLast(); 
+		if(node==null){
+			return;
+		}
+		while(System.currentTimeMillis() - node.timestamp > maxLifetime){
+			remove(node.object);
+			node = ageList.getLast();
+			if(node==null){
+				return;
+			}
+		}
+	}
+
+	public synchronized V remove(Object key) {
         DefaultCache.CacheObject<V> cacheObject = map.get(key);
         //If the object is not in cache, stop trying to remove it.
         if(cacheObject==null){

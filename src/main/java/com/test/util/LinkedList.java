@@ -1,9 +1,41 @@
 package com.test.util;
 
 
+
 public class LinkedList<E> {
 	
+	/**
+	 * The root of the list keeps a reference to both the first and 
+	 * last elements of the list.
+	 */
+	private Node<E> header;
+	/**
+	 * Creates a new linkedList
+	 */
+	public LinkedList(){
+		header = new Node<E>();
+	}
+	/**
+	 * Add a node to the beginning of the list.
+	 * @param node
+	 * @return
+	 */
+	public Node<E> addFirst(Node<E> node){
+		return node.insert(header.next, header.previous);
+	}
 	
+	public Node<E> addFirst(E object){
+		return new Node<E>(object,header.next,header.previous);
+	}
+	
+
+	public Node<E> getLast() {
+		Node<E> node = header.previous;
+		if(node==null){
+			return null;
+		}
+		return node;
+	}
 	static class Node<E> {
 		public Node<E> previous;
 		public Node<E> next;
@@ -17,7 +49,13 @@ public class LinkedList<E> {
 		 * Constructs of an self-reference node 
 		 */
 		public Node() {
-			previous = next = this;
+			this.previous = this.next = this;
+		}
+		public Node(E object, Node<E> next, Node<E> previous) {
+			this.object = object;
+			if(next!=null && previous!=null){
+				this.insert(next, previous);
+			}
 		}
 		/**
 		 * Removes this node from the linkedList.
@@ -42,4 +80,5 @@ public class LinkedList<E> {
 			return this;
 		}
 	}
+
 }
