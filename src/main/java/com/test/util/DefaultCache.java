@@ -4,9 +4,9 @@ package com.test.util;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jivesoftware.util.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.test.util.LinkedList.Node;
 
 public class DefaultCache<K, V> implements Cache<K, V> {
 
@@ -82,6 +82,22 @@ public class DefaultCache<K, V> implements Cache<K, V> {
         cullCache();
         return v;
     }
+    
+    public synchronized V get(K k){
+        delExpiredNodes();
+        DefaultCache.CacheObject<V> cacheObject = map.get(k);
+        if (cacheObject == null) {
+            // The object didn't exist in cache, so increment cache misses.
+            cacheMisses++;
+            return null;
+        }
+        cacheHits++;
+        cacheObject.readCount++;
+        cacheObject.lastAccessedListNode.remove();
+        lastAccessedList.addFirst((Node<K>) cacheObject.lastAccessedListNode);
+        return cacheObject.object;
+    }
+    
     /**
      * Remove object from cache if the cache is too full.
      * "Too full" is defined as within 3% of the maximum cache size.
@@ -95,6 +111,12 @@ public class DefaultCache<K, V> implements Cache<K, V> {
     	int desiredSize = (int)(maxCacheSize * .97);
     	if(cacheSize >= desiredSize){
     		delExpiredNodes();
+    		desiredSize = (int)(maxCacheSize*.90);
+    		if(cacheSize > desiredSize){
+    		    do{
+    		        remove(lastAccessedList.getLast().object);
+    		    }while(cacheSize > desiredSize);
+    		}
     	}
     	
 	}
